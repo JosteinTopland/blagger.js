@@ -3,12 +3,20 @@
   jostein.topland@gmail.com
 */
 
-var levels = [{
+let player = {
+  x: 0,
+  y: 0,
+  state: "stop",
+  dir: "right",
+  velocity: 0
+}
+
+let levels = [{
   name: "the bank",
   map: [
     0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x02,
     0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x02,
-    0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x02,
+    0x01, 0x01, 0x01, 0x42, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x02,
     0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x03, 0x03,
     0x06, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x09, 0x09, 0x00, 0x00, 0x01, 0x04, 0x01,
     0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x05, 0x01,
@@ -29,13 +37,13 @@ var levels = [{
   sprites: [
     [0x40, 186, 16],
     [0x13, 203, 60],
-    [0x41, 120, 128],
+    [0x41, 90, 128, 170, 128],
   ],
   width: 31,
   height: 19
 }];
 
-var sprites = {
+let sprites = {
   spritesheet: null,
   coords: {
     0x01: [0, 0, 8, 8],
@@ -51,11 +59,12 @@ var sprites = {
     0x11: [8, 8, 8, 8],
     0x12: [16, 8, 8, 8],
     0x13: [0, 72, 21, 13],
-    0x20: [0, 16, 8, 8, 8],
-    0x21: [0, 24, 8, 8, 8],
+    0x20: [0, 16, 8, 8, 8, 1],
+    0x21: [0, 24, 8, 8, 8, 1],
     0x30: [0, 32, 8, 8],
-    0x40: [0, 40, 21, 16],
-    0x41: [0, 56, 21, 16],
+    0x40: [0, 40, 24, 16, 8, 0], // player
+    0x41: [0, 56, 24, 16, 2, 10], // enemy
+    0x42: [0, 85, 40, 8],
   },
   gridSize: 8
 };
@@ -67,40 +76,105 @@ function preload() {
 function setup() {
 	createCanvas(windowWidth, windowHeight);
   noSmooth();
-  frameRate(20);
+  frameRate(30);
+  setLevel(0);
+}
+
+function setLevel(levelNum) {
+  let level = levels[levelNum];
+  for (let i = 0; i < level.sprites.length; i++) {
+    let sprite = level.sprites[i];
+    let coordId = sprite[0];
+    if (coordId == 0x40) {
+      player.x = sprite[1];
+      player.y = sprite[2];
+      break;
+    }
+  }
 }
 
 function draw() {
-  scale(3 );
+  scale(3);
   background('black');
+  updatePlayer();
   drawLevel();
+}
+
+function updatePlayer() {
+  if (player.state == "walk") {
+    player.x += (player.dir == "left") ? -1 : 1;
+  }
+  if (player.state == "jump") { // TODO!!
+    player.y += 2 * sin(player.velocity * 0.3);
+    player.velocity--;
+    if (player.velocity == 0) {
+      player.state = "stop"
+    }
+  }
 }
 
 function drawLevel() {
   let level = levels[0];
+  // tiles
   for (let i = 0; i < level.map.length; i++) {
-    if (level.map[i] == 0x00) continue;
+    let coordId = level.map[i];
+    if (coordId == 0x00) continue;
     let x = i % level.width * sprites.gridSize;
     let y = floor(i / level.width) * sprites.gridSize;
-    let coord = sprites.coords[level.map[i]];
-    let xCoord = coord[0];
-    if (coord[4] != undefined) xCoord += coord[2] * (frameCount % coord[4]);
-    image(sprites.spritesheet, x, y, coord[2], coord[3], xCoord, coord[1], coord[2], coord[3]);
+    drawSprite(coordId, x, y);
   }
+  // sprites
   for (let i = 0; i < level.sprites.length; i++) {
     let coordId = level.sprites[i][0];
-    let x = level.sprites[i][1];
-    let y = level.sprites[i][2];
-    let coord = sprites.coords[coordId];
-    let xCoord = coord[0];
-    //if (coord[4] != undefined) xCoord += coord[2] * (frameCount % coord[4]);
+    let x1 = level.sprites[i][1];
+    let y1 = level.sprites[i][2];
+    let x2 = level.sprites[i][3];
+    let y2 = level.sprites[i][4];
+    if (coordId != 0x40) {
+      drawSprite(coordId, x1, y1, x2, y2);
+    }
+  }
+  // player
+  drawSprite(0x40, player.x, player.y, 0, 0, player.dir == "left");
+}
+
+function drawSprite(coordId, x1, y1, x2, y2, mirrored) {
+  let coord = sprites.coords[coordId];
+  let x = x1;
+  let y = y1;
+  if (x2 && y2) {
+    x = x2 - abs(frameCount % (2 * (x2 - x1)) - (x2 - x1));
+  }
+  let xCoord = coord[0];
+  if (coord[4]) {
+    let frame = coord[5] ? floor(frameCount / coord[5]) : x;
+    xCoord += coord[2] * (frame % coord[4]);
+  }
+  if (mirrored) {
+    push();
+    scale(-1, 1);
+    image(sprites.spritesheet, -x - coord[2], y, coord[2], coord[3], coord[2] * (coord[4] - 1) - xCoord, coord[1], coord[2], coord[3]);
+    pop();
+  } else {
     image(sprites.spritesheet, x, y, coord[2], coord[3], xCoord, coord[1], coord[2], coord[3]);
   }
 }
 
 function keyPressed() {
-  //if (keyCode == LEFT_ARROW) jetFighter.direction = -1;
+  if (keyCode == LEFT_ARROW) {
+    player.state = "walk";
+    player.dir = "left";
+  }
+  if (keyCode == RIGHT_ARROW) {
+    player.state = "walk";
+    player.dir = "right";
+  }
+  if (keyCode == UP_ARROW) {
+    player.state = "jump";
+    player.velocity = 20;
+  }
 }
 
 function keyReleased() {
+  if (player.state != "jump") player.state = "stop";
 }
